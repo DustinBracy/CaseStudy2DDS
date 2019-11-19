@@ -10,16 +10,39 @@ editor_options:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(kableExtra)
 ```
 
 ## R Markdown
 
 Objectives:  
-- Identify the top three factors that contribute to turnover (backed up by evidence provided by analysis).
-- Identify job role specific trends.
+- Identify the top three factors that contribute to employee attrition (backed up by evidence provided by analysis).
+- Identify job and/or role specific trends.
+- Identify useful factors related to talent management (workforce planning, employee training, identifying high potential employees, reducing turnover)
+- Present findings via YouTube in 7 minutes or less
 
+Target Audience:
+- CEO and CFO of Frito Lay
+- CEO is statistician, CFO has had only one class in statistics
+
+Clarification:
+- Job level 1-5 low-high
+- Overtime = non-exempt
+- Distance is unknown (mi/km), suggest using high/low
+- use percent attrition vs count
+- performance ratings maybe indicate there is a fear of giving a low score
+- training times last year = # of traning sessions attended
+- what is hourly/daily/monthly rate?  Production rates?  
 
 ```{r}
 data <- read.csv('./data/CaseStudy2-data.csv', header=T)
+summary(data)
+
+# Check for missing values:
+MissingValues <- sapply(data, function(x)sum(is.na(x)))
+MissingValues %>% kable("html") %>% kable_styling()
+
+data %>% group_by(Attrition) %>% summarise(Employees = n()) %>% ggplot(mapping=aes(AttritionCount, Employees)) + geom_col()
+
 
 ```
