@@ -1,0 +1,25 @@
+---
+title: "Employee Attrition EDA for DDSAnalytics"
+author: "Dustin Bracy"
+date: "12/05/2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## R Markdown
+
+Objectives:  
+- Identify the top three factors that contribute to turnover (backed up by evidence provided by analysis).
+- Identify job role specific trends.
+
+
+```{r}
+data <- read.csv('./data/CaseStudy2-data.csv', header=T)
+
+```
