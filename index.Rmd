@@ -17,7 +17,6 @@ library(caret) #knn
 library(olsrr)
 library(e1071) #naive bayes
 library(fastNaiveBayes)
-
 ```
 
 ## R Markdown
@@ -93,6 +92,7 @@ data$zAge <- scale(data$Age)
 data$zYearsInCurrentRole <- scale(data$YearsInCurrentRole)
 data$zDistanceFromHome <- scale(data$DistanceFromHome)
 
+
 data$LessThan5k <- ifelse(data$MonthlyIncome < 5000, 1, 0)
 data$NewWorker <- ifelse(data$NumCompaniesWorked <=1, 1, 0)
 data$LowLevel <- ifelse(data$JobLevel == 1, 1, 0)
@@ -110,9 +110,13 @@ data$TopPerformer <- ifelse(data$PerformanceRating < 4, 0 , 1)
 data$NoStock <- ifelse(data$StockOptionLevel < 1, 1 , 0)
 data$NoTraining <- ifelse(data$TrainingTimesLastYear < 1, 1 , 0)
 data$HourlyOver40 <- ifelse(data$HourlyRate > 40, 1 , 0)
-data$MonthlyOver15k <- ifelse(data$HourlyRate > 15000, 1 , 0)
+data$MonthlyOver15k <- ifelse(data$MonthlyRate > 15000, 1 , 0)
+
 # drop factors
 rdata <- subset(data, select = -c(Over18, Department, JobRole, MaritalStatus, EducationField, EmployeeCount, StandardHours))
+
+# scale numerics
+kdata <- data.frame(apply(rdata, MARGIN = 2, FUN = function(X) (X - min(X))/diff(range(X))))
 
 ```
 
@@ -203,7 +207,7 @@ cor.mtest <- function(mat, ...) {
   p.mat
 }
 # matrix of the p-value of the correlation
-p.mat <- cor.mtest(data)
+p.mat <- cor.mtest(rdata)
 
 col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
 png(height=1200, width=1500, pointsize=8, file="corrNums.png")
@@ -228,22 +232,23 @@ dev.off()
 
 # KNN Prediction
 ```{r KNN attrition}
-dim(data)[1]
 
 iterations = 50
-numks = round(sqrt(dim(data)[1]))
+numks = round(sqrt(dim(kdata)[1]))
 masterAcc = matrix(nrow = iterations, ncol = numks)
 masterSpec = matrix(nrow = iterations)
 masterSen = matrix(nrow = iterations)
-knnArray <- c('zBusinessTravel','zJobSatisfaction','zMonthlyIncome','OverTime','zJobInvolvement','zYearsAtCompany','zJobLevel','JobSalesRepresentative','Divorced','JobSalesExecutive','zDistanceFromHome')
-#knnArray <- c('HighlySatisfied','OverTime','LowLevel','Unbalanced', "WorkedOver30",'Uninvolved',"SalaryHike","NewHire","NewWorker","NewToRole","AgeUnder40","DueForPromotion")
+knnArray <- c('BusinessTravel','JobSatisfaction','MonthlyIncome','OverTime','JobInvolvement','TotalWorkingYears','JobLevel','DistanceFromHome',"Gender")
+#knnArray <- c('JobSatisfaction','OverTime','JobLevel','WorkLifeBalance', 'JobInvolvement',"PercentSalaryHike",
+            #  "YearsAtCompany","YearsInCurrentRole","TotalWorkingYears","Age","YearsSinceLastPromotion","PerformanceRating","StockOptionLevel",
+          #    'BusinessTravel',"Gender",'JobSatisfaction')
 
 for(j in 1:iterations) {
   
   accs = data.frame(accuracy = numeric(numks), k = numeric(numks))
-  trainIndices = sample(1:dim(data)[1],round(splitPerc * dim(data)[1]))
-  train = data[trainIndices,]
-  test = data[-trainIndices,]
+  trainIndices = sample(1:dim(kdata)[1],round(splitPerc * dim(kdata)[1]))
+  train = kdata[trainIndices,]
+  test = kdata[-trainIndices,]
   
   for(i in 1:numks) {
     
@@ -253,7 +258,8 @@ for(j in 1:iterations) {
     CM = confusionMatrix(table(as.factor(test$Attrition),classifications))
     masterAcc[j,i] = CM$overall[1]
     masterSen[j] = CM$byClass[1]
-    masterSpec[j] = CM$byClass[2]
+    masterSpec[j] = ifelse(is.na(CM$byClass[2]),0,CM$byClass[2])
+
   }
 }
 
@@ -261,10 +267,6 @@ MeanAcc = colMeans(masterAcc)
 plot(seq(1,numks,1),MeanAcc, Attrition = 1)
 k <- which.max(MeanAcc)
 MeanAcc[k]
-colMeans(masterAcc)
-colMeans(masterSen)
-colMeans(masterSpec)
-
 
 classifications = knn(train[,knnArray],test[,knnArray],as.factor(train$Attrition), prob = TRUE, k = k)
 confusionMatrix(table(test$Attrition,classifications))
@@ -284,9 +286,11 @@ masterSen = matrix(nrow = iterations)
 
 splitPerc = .7 #Training / Test split Percentage
 
-nbArray <- c("EducationField",'HighlySatisfied','OverTime','LowLevel','Unbalanced', "JobRole", "WorkedOver30",'MaritalStatus','JobInvolvement',"SalaryHike", "NewHire","NewWorker","NewToRole", "AgeUnder40","DueForPromotion","TopPerformer","NoStock","Gender","MonthlyOver15k","HourlyOver40","LongCommute")
+nbArray <- c("EducationField",'HighlySatisfied','OverTime','LowLevel','Unbalanced', "JobRole", "WorkedOver30",'MaritalStatus','JobInvolvement',"SalaryHike", "NewHire","NewWorker","NewToRole", "AgeUnder40","DueForPromotion","TopPerformer","NoStock","Gender")
 
-#nbArray <- c("LessThan5k","LessThan5Years","OverTime","JobRole")
+#nbArray <-c('JobSatisfaction','OverTime','JobLevel','WorkLifeBalance', 'JobInvolvement',"PercentSalaryHike",
+ #           "YearsAtCompany","YearsInCurrentRole","TotalWorkingYears","Age","YearsSinceLastPromotion","PerformanceRating","StockOptionLevel",
+#           'BusinessTravel',"Gender",'JobSatisfaction')
 
 #nbArray <- c('MaritalStatus','JobRole','OverTime')
 
@@ -296,8 +300,9 @@ for(j in 1:iterations)
   trainIndices = sample(1:dim(data)[1],round(splitPerc * dim(data)[1]))
   train = data[trainIndices,]
   test = data[-trainIndices,]
-  
+  #fastNaiveBayes(train[,nbArray], as.factor(train$Attrition), laplace = .0001)
   model = naiveBayes(train[,nbArray],as.factor(train$Attrition),laplace = .0001)
+  #model = fnb.train(train[,nbArray],as.factor(train$Attrition),laplace = .0001)
   table(predict(model,test[,nbArray]),as.factor(test$Attrition))
   CM = confusionMatrix(table(predict(model,test[,nbArray]),as.factor(test$Attrition)))
   masterAcc[j] = CM$overall[1]
@@ -309,7 +314,6 @@ colMeans(masterSen)
 colMeans(masterSpec)
 
 confusionMatrix(table(predict(model,test[,nbArray]),as.factor(test$Attrition)))
-
 
 
 ```
