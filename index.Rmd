@@ -4,7 +4,7 @@ author: "Dustin Bracy"
 date: "12/05/2019"
 output: html_document
 editor_options: 
-  chunk_output_type: inline
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -13,8 +13,11 @@ library(tidyverse)
 library(kableExtra)
 library(corrplot)
 library(class)
-library(caret)
+library(caret) #knn
 library(olsrr)
+library(e1071) #naive bayes
+library(fastNaiveBayes)
+
 ```
 
 ## R Markdown
@@ -76,8 +79,40 @@ data$JobHealthcareRepresentative <- ifelse(data$JobRole == "Healthcare Represent
 data$JobHumanResources <- ifelse(data$JobRole == "Human Resources",1,0)
 data$JobLaboratoryTechnician <- ifelse(data$JobRole == "Laboratory Technician",1,0)
 
+
+
+set.seed(113)
+splitPerc <- .7
+data$zMonthlyIncome <- scale(data$MonthlyIncome)
+data$zBusinessTravel <- scale(data$BusinessTravel)
+data$zJobSatisfaction <- scale(data$JobSatisfaction)
+data$zJobInvolvement <- scale(data$JobInvolvement)
+data$zYearsAtCompany <- scale(data$YearsAtCompany)
+data$zJobLevel <- scale(data$JobLevel)
+data$zAge <- scale(data$Age)
+data$zYearsInCurrentRole <- scale(data$YearsInCurrentRole)
+data$zDistanceFromHome <- scale(data$DistanceFromHome)
+
+data$LessThan5k <- ifelse(data$MonthlyIncome < 5000, 1, 0)
+data$NewWorker <- ifelse(data$NumCompaniesWorked <=1, 1, 0)
+data$LowLevel <- ifelse(data$JobLevel == 1, 1, 0)
+data$NewHire <- ifelse(data$YearsAtCompany <4, 1, 0)
+data$WorkedOver30 <- ifelse(data$TotalWorkingYears >=30, 1, 0)
+data$Uninvolved <- ifelse(data$JobInvolvement <2, 1, 0)
+data$NewToRole <- ifelse(data$YearsInCurrentRole <=1, 1, 0)
+data$Unbalanced <- ifelse(data$WorkLifeBalance <2, 1, 0)
+data$SalaryHike <- ifelse(data$PercentSalaryHike  >20, 1, 0)
+data$HighlySatisfied <- ifelse(data$JobSatisfaction < 4, 0 , 1)
+data$LongCommute <- ifelse(data$DistanceFromHome >= 15, 1 ,0)
+data$AgeUnder40 <- ifelse(data$Age <40, 1,0)
+data$DueForPromotion <- ifelse(data$YearsSinceLastPromotion %in% c(1,5,6,7), 0, 1)
+data$TopPerformer <- ifelse(data$PerformanceRating < 4, 0 , 1)
+data$NoStock <- ifelse(data$StockOptionLevel < 1, 1 , 0)
+data$NoTraining <- ifelse(data$TrainingTimesLastYear < 1, 1 , 0)
+data$HourlyOver40 <- ifelse(data$HourlyRate > 40, 1 , 0)
+data$MonthlyOver15k <- ifelse(data$HourlyRate > 15000, 1 , 0)
 # drop factors
-data <- subset(data, select = -c(Over18, Department, JobRole, MaritalStatus, EducationField, EmployeeCount, StandardHours))
+rdata <- subset(data, select = -c(Over18, Department, JobRole, MaritalStatus, EducationField, EmployeeCount, StandardHours))
 
 ```
 
@@ -85,6 +120,9 @@ data <- subset(data, select = -c(Over18, Department, JobRole, MaritalStatus, Edu
 data %>% group_by(Attrition) %>% summarise(Employees = n()) %>% ggplot(mapping=aes(Attrition, Employees)) + geom_col()
 
 
+data %>% ggplot(aes(JobSatisfaction, Attrition)) + geom_smooth()
+data %>% ggplot(aes(TrainingTimesLastYear, Attrition)) + geom_smooth()
+data %>% ggplot(aes(Education, Attrition)) + geom_smooth()
 
 data %>% ggplot(aes(JobLevel, Attrition)) + geom_smooth()
 data %>% ggplot(aes(BusinessTravel, Attrition)) + geom_smooth()
@@ -94,13 +132,27 @@ data %>% ggplot(aes(YearsSinceLastPromotion, Attrition)) + geom_smooth()
 data %>% ggplot(aes(YearsWithCurrManager, Attrition)) + geom_smooth()
 data %>% ggplot(aes(TotalWorkingYears, Attrition)) + geom_smooth()
 data %>% ggplot(aes(MonthlyIncome, Attrition)) + geom_smooth()
-data %>% ggplot(aes(MonthlyRate, Attrition)) + geom_smooth()
-data %>% ggplot(aes(NumCompaniesWorked, Attrition)) + geom_col(width=1)
 data %>% ggplot(aes(JobLevel, Attrition)) + geom_smooth()
 data %>% ggplot(aes(JobSatisfaction, Attrition)) + geom_smooth()
 data %>% ggplot(aes(RelationshipSatisfaction, Attrition)) + geom_smooth()
 data %>% ggplot(aes(DistanceFromHome, Attrition)) + geom_smooth()
 data %>% ggplot(aes(DailyRate, Attrition)) + geom_smooth()
+data %>% ggplot(aes(HourlyRate, Attrition)) + geom_smooth()
+data %>% ggplot(aes(MonthlyRate, Attrition)) + geom_smooth()
+
+unique(data$DailyRate)
+unique(data$HourlyRate)
+unique(data$MonthlyRate)
+
+data %>% ggplot(aes(JobInvolvement, Attrition)) + geom_smooth()
+data %>% ggplot(aes(WorkLifeBalance, Attrition)) + geom_smooth()
+data %>% ggplot(aes(PercentSalaryHike, Attrition)) + geom_smooth()
+data %>% ggplot(aes(Age, Attrition)) + geom_smooth()
+data %>% ggplot(aes(PerformanceRating, Attrition)) + geom_col()
+data %>% ggplot(aes(StockOptionLevel, Attrition)) + geom_smooth()
+
+data %>% ggplot(aes(NumCompaniesWorked, Attrition)) + geom_col(width=1)
+data %>% ggplot(aes(Department, Attrition)) + geom_col()
 
 data %>% ggplot(aes(JobResearchDirector, Attrition)) + geom_col()
 data %>% ggplot(aes(JobSalesExecutive, Attrition)) + geom_col()
@@ -119,7 +171,19 @@ data %>% ggplot(aes(EdTechnicalDegree, Attrition)) + geom_col()
 data %>% ggplot(aes(EdOther, Attrition)) + geom_col()
 data %>% ggplot(aes(EdLifeSciences, Attrition)) + geom_col()
 
-data.cor <- cor(data)
+data %>% ggplot(aes(Single, Attrition)) + geom_col()
+data %>% ggplot(aes(Married, Attrition)) + geom_col()
+data %>% ggplot(aes(Divorced, Attrition)) + geom_col()
+data %>% ggplot(aes(Gender, Attrition)) + geom_col()
+
+data %>% ggplot(aes(OverTime, Attrition)) + geom_col()
+data %>% ggplot(aes(OverTime, JobSatisfaction)) + geom_smooth()
+
+```
+
+
+```{r view correlation}
+data.cor <- cor(rdata)
 data.cor %>% kable("html") %>% kable_styling
 
 # mat : is a matrix of data
@@ -163,12 +227,16 @@ dev.off()
 
 
 # KNN Prediction
-```{r model attrition}
-set.seed(113)
-splitPerc = .7
-iterations = 10
-numks =5
+```{r KNN attrition}
+dim(data)[1]
+
+iterations = 50
+numks = round(sqrt(dim(data)[1]))
 masterAcc = matrix(nrow = iterations, ncol = numks)
+masterSpec = matrix(nrow = iterations)
+masterSen = matrix(nrow = iterations)
+knnArray <- c('zBusinessTravel','zJobSatisfaction','zMonthlyIncome','OverTime','zJobInvolvement','zYearsAtCompany','zJobLevel','JobSalesRepresentative','Divorced','JobSalesExecutive','zDistanceFromHome')
+#knnArray <- c('HighlySatisfied','OverTime','LowLevel','Unbalanced', "WorkedOver30",'Uninvolved',"SalaryHike","NewHire","NewWorker","NewToRole","AgeUnder40","DueForPromotion")
 
 for(j in 1:iterations) {
   
@@ -179,44 +247,82 @@ for(j in 1:iterations) {
   
   for(i in 1:numks) {
     
-    classifications = knn(train[,c('BusinessTravel','JobSatisfaction')],test[,c('BusinessTravel','JobSatisfaction')],as.factor(train$Attrition), prob = TRUE, k = i)
+    classifications = knn(train[,knnArray],test[,knnArray],as.factor(train$Attrition), prob = TRUE, k = i)
     
     table(as.factor(test$Attrition),classifications)
     CM = confusionMatrix(table(as.factor(test$Attrition),classifications))
     masterAcc[j,i] = CM$overall[1]
+    masterSen[j] = CM$byClass[1]
+    masterSpec[j] = CM$byClass[2]
   }
 }
 
 MeanAcc = colMeans(masterAcc)
 plot(seq(1,numks,1),MeanAcc, Attrition = 1)
 k <- which.max(MeanAcc)
+MeanAcc[k]
+colMeans(masterAcc)
+colMeans(masterSen)
+colMeans(masterSpec)
 
-classifications = knn(train[,c('BusinessTravel','JobSatisfaction')],test[,c('BusinessTravel','JobSatisfaction')],train$Attrition, prob = TRUE, k)
 
-table(test$Attrition,classifications)
-
+classifications = knn(train[,knnArray],test[,knnArray],as.factor(train$Attrition), prob = TRUE, k = k)
 confusionMatrix(table(test$Attrition,classifications))
 
-knn(train[,c('BusinessTravel')], test[,c('BusinessTravel')], train$Attrition, prob=T, k=3)
 
-
-    classifications = knn(train[,c('BusinessTravel','JobSatisfaction')],test[,c('BusinessTravel','JobSatisfaction')],as.factor(train$Attrition), prob = TRUE, k = 1)
-    
-    table(as.factor(test$Attrition),classifications)
-    CM = confusionMatrix(table(as.factor(test$Attrition),classifications))
-    masterAcc[1,1] = CM$overall[1]
-    classifications
 ```
 
+# Naive Bayes for Attrition
 
+```{r Naive Bayes attrition}
 
-```{r model salary}
-set.seed(113)
-splitPerc = .7
-train$LogMonthlyIncome <- log(train$MonthlyIncome)
+iterations = 50
+
+masterAcc = matrix(nrow = iterations)
+masterSpec = matrix(nrow = iterations)
+masterSen = matrix(nrow = iterations)
+
+splitPerc = .7 #Training / Test split Percentage
+
+nbArray <- c("EducationField",'HighlySatisfied','OverTime','LowLevel','Unbalanced', "JobRole", "WorkedOver30",'MaritalStatus','JobInvolvement',"SalaryHike", "NewHire","NewWorker","NewToRole", "AgeUnder40","DueForPromotion","TopPerformer","NoStock","Gender","MonthlyOver15k","HourlyOver40","LongCommute")
+
+#nbArray <- c("LessThan5k","LessThan5Years","OverTime","JobRole")
+
+#nbArray <- c('MaritalStatus','JobRole','OverTime')
+
+for(j in 1:iterations)
+{
+  
   trainIndices = sample(1:dim(data)[1],round(splitPerc * dim(data)[1]))
   train = data[trainIndices,]
   test = data[-trainIndices,]
+  
+  model = naiveBayes(train[,nbArray],as.factor(train$Attrition),laplace = .0001)
+  table(predict(model,test[,nbArray]),as.factor(test$Attrition))
+  CM = confusionMatrix(table(predict(model,test[,nbArray]),as.factor(test$Attrition)))
+  masterAcc[j] = CM$overall[1]
+  masterSen[j] = CM$byClass[1]
+  masterSpec[j] = CM$byClass[2]
+}
+colMeans(masterAcc)
+colMeans(masterSen)
+colMeans(masterSpec)
+
+confusionMatrix(table(predict(model,test[,nbArray]),as.factor(test$Attrition)))
+
+
+
+```
+
+# Regression for Salary
+
+```{r salary regression}
+
+
+train$LogMonthlyIncome <- log(train$MonthlyIncome)
+  trainIndices = sample(1:dim(rdata)[1],round(splitPerc * dim(rdata)[1]))
+  train = rdata[trainIndices,]
+  test = rdata[-trainIndices,]
 salFit <- lm(MonthlyIncome ~ JobLevel + TotalWorkingYears
              + JobManager + JobResearchDirector + JobLaboratoryTechnician 
              , data=train)
