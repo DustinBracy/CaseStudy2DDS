@@ -18,7 +18,6 @@ library(olsrr)
 library(e1071) #naive bayes
 library(fastNaiveBayes)
 library(GGally)
-
 ```
 
 ## R Markdown
@@ -126,6 +125,7 @@ kdata <- data.frame(apply(rdata, MARGIN = 2, FUN = function(X) (X - min(X))/diff
 ```{r visualize}
 data %>% group_by(Attrition) %>% summarise(Employees = n()) %>% ggplot(mapping=aes(Attrition, Employees)) + geom_col()
 
+
 data %>% select('BusinessTravel','JobSatisfaction','MonthlyIncome','OverTime','JobInvolvement','TotalWorkingYears','JobLevel','DistanceFromHome',"Gender", 'Attrition') %>% ggpairs()
 
 data %>% select("EducationField",'HighlySatisfied','OverTime','LowLevel','Unbalanced', "JobRole", "WorkedOver30",'MaritalStatus','JobInvolvement',"SalaryHike", "NewHire","NewWorker","NewToRole", "AgeUnder40","DueForPromotion","TopPerformer","NoStock","Gender","Attrition") %>% ggpairs()
@@ -161,12 +161,13 @@ data %>% ggplot(aes(JobInvolvement, Attrition)) + geom_smooth()
 data %>% ggplot(aes(WorkLifeBalance, Attrition)) + geom_smooth()
 data %>% ggplot(aes(PercentSalaryHike, Attrition)) + geom_smooth()
 data %>% ggplot(aes(Age, Attrition)) + geom_smooth()
-data %>% ggplot(aes(PerformanceRating, Attrition)) + geom_col()
+oData %>% ggplot(aes(PerformanceRating, fill=Attrition)) + geom_bar()
 data %>% ggplot(aes(StockOptionLevel, Attrition)) + geom_smooth()
 
-data %>% ggplot(aes(NumCompaniesWorked, Attrition)) + geom_col(width=1)
-data %>% ggplot(aes(Department, Attrition)) + geom_col()
+oData %>% ggplot(aes(NumCompaniesWorked, fill=Attrition)) + geom_bar()
+oData %>% ggplot(aes(Department, fill=Attrition)) + geom_bar()
 
+oData %>% ggplot(aes(JobRole)) + geom_bar(aes(fill=Attrition))
 data %>% ggplot(aes(JobResearchDirector, Attrition)) + geom_col()
 data %>% ggplot(aes(JobSalesExecutive, Attrition)) + geom_col()
 data %>% ggplot(aes(JobManufacturingDirector, Attrition)) + geom_col()
@@ -177,6 +178,7 @@ data %>% ggplot(aes(JobManager, Attrition)) + geom_col()
 data %>% ggplot(aes(JobSalesRepresentative, Attrition)) + geom_col()
 data %>% ggplot(aes(JobLaboratoryTechnician, Attrition)) + geom_col()
 
+oData %>% ggplot(aes(EducationField)) + geom_bar(aes(fill=Attrition))
 data %>% ggplot(aes(EdHumanResources, Attrition)) + geom_col()
 data %>% ggplot(aes(EdMedical, Attrition)) + geom_col()
 data %>% ggplot(aes(EdMarketing, Attrition)) + geom_col()
@@ -184,12 +186,15 @@ data %>% ggplot(aes(EdTechnicalDegree, Attrition)) + geom_col()
 data %>% ggplot(aes(EdOther, Attrition)) + geom_col()
 data %>% ggplot(aes(EdLifeSciences, Attrition)) + geom_col()
 
+oData %>% ggplot(aes(MaritalStatus)) + geom_bar(aes(fill=Attrition))
 data %>% ggplot(aes(Single, Attrition)) + geom_col()
 data %>% ggplot(aes(Married, Attrition)) + geom_col()
 data %>% ggplot(aes(Divorced, Attrition)) + geom_col()
-data %>% ggplot(aes(Gender, Attrition)) + geom_col()
+oData %>% ggplot(aes(Gender, fill=Attrition)) + geom_bar()
 
-data %>% ggplot(aes(OverTime, Attrition)) + geom_col()
+
+
+oData %>% ggplot(aes(OverTime, fill=Attrition)) + geom_bar()
 data %>% ggplot(aes(OverTime, JobSatisfaction)) + geom_smooth()
 
 ```
@@ -297,18 +302,37 @@ set.seed(7)
 masterAcc = matrix(nrow = iterations)
 masterSpec = matrix(nrow = iterations)
 masterSen = matrix(nrow = iterations)
-
+masterAcc2 = matrix(nrow = iterations)
+masterSpec2 = matrix(nrow = iterations)
+masterSen2 = matrix(nrow = iterations)
 splitPerc = .7 #Training / Test split Percentage
 
-nbArray <- c('HighlySatisfied','OverTime','LowLevel','Unbalanced',"WorkedOver30",'JobInvolvement',"SalaryHike", "NewHire","NewToRole", "AgeUnder40","DueForPromotion","TopPerformer","NoStock","Gender","MaritalStatus","LogIncome")
+nbArray <- c('HighlySatisfied','OverTime','LowLevel','Unbalanced',"WorkedOver30",'JobInvolvement',"SalaryHike", "NewHire","NewToRole", "AgeUnder40","DueForPromotion","TopPerformer","NoStock","MaritalStatus","LogIncome","MonthlyOver15k","HourlyOver40")
+model = naiveBayes(train[,nbArray],as.factor(train$Attrition),laplace = .0001)
+confusionMatrix(table(predict(model,test[,nbArray]),as.factor(test$Attrition)))
+
 
 #nbArray <-c('JobSatisfaction','OverTime','JobLevel','WorkLifeBalance', 'JobInvolvement',"PercentSalaryHike",
  #          "YearsAtCompany","YearsInCurrentRole","TotalWorkingYears","Age","YearsSinceLastPromotion","PerformanceRating","StockOptionLevel",
  #         'BusinessTravel',"Gender",'JobSatisfaction',"EnvironmentSatisfaction")
 #
-#nbArray <- c('OverTime', 'LowLevel', 'NoStock', 'NewToRole','JobInvolvement')
+nbArray2 <- c('OverTime', 'LowLevel','HighlySatisfied','Unbalanced',"WorkedOver30","SalaryHike", "NewHire","NewToRole", "AgeUnder40","DueForPromotion","TopPerformer","NoStock","Gender","Uninvolved", 'Single','Divorced','Married',"LongCommute","NoTraining","HourlyOver40","MonthlyOver15k","JobManager","JobSalesExecutive", 'JobSalesRepresentative')
 
 
+
+model2 = fnb.bernoulli(train2[,nbArray2], train2$Attrition, laplace = .0001)
+confusionMatrix(table(predict(model2,test2[,nbArray2]),as.factor(test2$Attrition)))
+
+#LogReg
+model3 <- glm(Attrition ~ HighlySatisfied+ OverTime+ LowLevel+Unbalanced+WorkedOver30+JobInvolvement+SalaryHike+ NewHire+NewToRole+ AgeUnder40+DueForPromotion+TopPerformer+NoStock+MaritalStatus+LogIncome+MonthlyOver15k+HourlyOver40, data=train, family="binomial" )
+summary(model3)
+atPrd <- predict(model3, type='response', newdata = test)
+actualPred <- ifelse(atPrd > 0.5, "Yes", "No")
+
+atPrd
+
+RMSE <- sqrt(mean((atPrd[,1] - test$Attrition)^2))
+RMSE
 
 for(j in 1:iterations)
 {
@@ -316,20 +340,32 @@ for(j in 1:iterations)
   trainIndices = sample(1:dim(data)[1],round(splitPerc * dim(data)[1]))
   train = data[trainIndices,]
   test = data[-trainIndices,]
-  #fastNaiveBayes(train[,nbArray], as.factor(train$Attrition), laplace = .0001)
+  train2 = rdata[trainIndices,]
+  test2 = rdata[-trainIndices,]
+  model2 = fnb.bernoulli(train2[,nbArray2], train2$Attrition, laplace = .0001)
   model = naiveBayes(train[,nbArray],as.factor(train$Attrition),laplace = .0001)
   #model = fnb.train(train[,nbArray],as.factor(train$Attrition),laplace = .0001)
   table(predict(model,test[,nbArray]),as.factor(test$Attrition))
+  table(predict(model2,test2[,nbArray2]),as.factor(test2$Attrition))  
+  
   CM = confusionMatrix(table(predict(model,test[,nbArray]),as.factor(test$Attrition)))
   masterAcc[j] = CM$overall[1]
   masterSen[j] = CM$byClass[1]
   masterSpec[j] = CM$byClass[2]
+  CM2 = confusionMatrix(table(predict(model2,test2[,nbArray2]),as.factor(test2$Attrition)))
+  masterAcc2[j] = CM2$overall[1]
+  masterSen2[j] = CM2$byClass[1]
+  masterSpec2[j] = CM2$byClass[2]
 }
 colMeans(masterAcc)
 colMeans(masterSen)
 colMeans(masterSpec)
+colMeans(masterAcc2)
+colMeans(masterSen2)
+colMeans(masterSpec2)
 
 confusionMatrix(table(predict(model,test[,nbArray]),as.factor(test$Attrition)))
+confusionMatrix(table(predict(model2,test2[,nbArray2]),as.factor(test2$Attrition)))
 
 
 ```
