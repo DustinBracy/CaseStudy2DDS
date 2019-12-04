@@ -79,10 +79,7 @@ data$JobHealthcareRepresentative <- ifelse(data$JobRole == "Healthcare Represent
 data$JobHumanResources <- ifelse(data$JobRole == "Human Resources",1,0)
 data$JobLaboratoryTechnician <- ifelse(data$JobRole == "Laboratory Technician",1,0)
 
-
-
-set.seed(113)
-splitPerc <- .7
+# zScale variables
 data$zMonthlyIncome <- scale(data$MonthlyIncome)
 data$zBusinessTravel <- scale(data$BusinessTravel)
 data$zJobSatisfaction <- scale(data$JobSatisfaction)
@@ -93,7 +90,7 @@ data$zAge <- scale(data$Age)
 data$zYearsInCurrentRole <- scale(data$YearsInCurrentRole)
 data$zDistanceFromHome <- scale(data$DistanceFromHome)
 
-
+# binary encode ordinal variables
 data$LessThan5k <- ifelse(data$MonthlyIncome < 5000, 1, 0)
 data$NewWorker <- ifelse(data$NumCompaniesWorked <=1, 1, 0)
 data$LowLevel <- ifelse(data$JobLevel == 1, 1, 0)
@@ -114,10 +111,10 @@ data$HourlyOver40 <- ifelse(data$HourlyRate > 40, 1 , 0)
 data$MonthlyOver15k <- ifelse(data$MonthlyRate > 15000, 1 , 0)
 data$LogIncome <- log(data$MonthlyIncome)
 
-# drop factors
+# drop factors for regression analysis
 rdata <- subset(data, select = -c(Over18, Department, JobRole, MaritalStatus, EducationField, EmployeeCount, StandardHours))
 
-# scale numerics
+# scale numerics 0-1 to improve KNN performance
 kdata <- data.frame(apply(rdata, MARGIN = 2, FUN = function(X) (X - min(X))/diff(range(X))))
 
 ```
@@ -253,11 +250,14 @@ dev.off()
 ```{r KNN attrition}
 
 iterations = 50
+set.seed(5)
 numks = round(sqrt(dim(kdata)[1]))
 masterAcc = matrix(nrow = iterations, ncol = numks)
 masterSpec = matrix(nrow = iterations)
 masterSen = matrix(nrow = iterations)
 knnArray <- c('BusinessTravel','JobSatisfaction','MonthlyIncome','OverTime','JobInvolvement','TotalWorkingYears','JobLevel','DistanceFromHome',"Gender")
+knnArray <- c('JobSatisfaction','OverTime','WorkLifeBalance','JobInvolvement','NewHire','YearsSinceLastPromotion','NoStock','DistanceFromHome')
+
 #knnArray <- c('JobSatisfaction','OverTime','JobLevel','WorkLifeBalance', 'JobInvolvement',"PercentSalaryHike",
             #  "YearsAtCompany","YearsInCurrentRole","TotalWorkingYears","Age","YearsSinceLastPromotion","PerformanceRating","StockOptionLevel",
           #    'BusinessTravel',"Gender",'JobSatisfaction')
@@ -302,37 +302,11 @@ set.seed(7)
 masterAcc = matrix(nrow = iterations)
 masterSpec = matrix(nrow = iterations)
 masterSen = matrix(nrow = iterations)
-masterAcc2 = matrix(nrow = iterations)
-masterSpec2 = matrix(nrow = iterations)
-masterSen2 = matrix(nrow = iterations)
-splitPerc = .7 #Training / Test split Percentage
 
 nbArray <- c('HighlySatisfied','OverTime','LowLevel','Unbalanced',"WorkedOver30",'JobInvolvement',"SalaryHike", "NewHire","NewToRole", "AgeUnder40","DueForPromotion","TopPerformer","NoStock","MaritalStatus","LogIncome","MonthlyOver15k","HourlyOver40")
 model = naiveBayes(train[,nbArray],as.factor(train$Attrition),laplace = .0001)
 confusionMatrix(table(predict(model,test[,nbArray]),as.factor(test$Attrition)))
 
-
-#nbArray <-c('JobSatisfaction','OverTime','JobLevel','WorkLifeBalance', 'JobInvolvement',"PercentSalaryHike",
- #          "YearsAtCompany","YearsInCurrentRole","TotalWorkingYears","Age","YearsSinceLastPromotion","PerformanceRating","StockOptionLevel",
- #         'BusinessTravel',"Gender",'JobSatisfaction',"EnvironmentSatisfaction")
-#
-nbArray2 <- c('OverTime', 'LowLevel','HighlySatisfied','Unbalanced',"WorkedOver30","SalaryHike", "NewHire","NewToRole", "AgeUnder40","DueForPromotion","TopPerformer","NoStock","Gender","Uninvolved", 'Single','Divorced','Married',"LongCommute","NoTraining","HourlyOver40","MonthlyOver15k","JobManager","JobSalesExecutive", 'JobSalesRepresentative')
-
-
-
-model2 = fnb.bernoulli(train2[,nbArray2], train2$Attrition, laplace = .0001)
-confusionMatrix(table(predict(model2,test2[,nbArray2]),as.factor(test2$Attrition)))
-
-#LogReg
-model3 <- glm(Attrition ~ HighlySatisfied+ OverTime+ LowLevel+Unbalanced+WorkedOver30+JobInvolvement+SalaryHike+ NewHire+NewToRole+ AgeUnder40+DueForPromotion+TopPerformer+NoStock+MaritalStatus+LogIncome+MonthlyOver15k+HourlyOver40, data=train, family="binomial" )
-summary(model3)
-atPrd <- predict(model3, type='response', newdata = test)
-actualPred <- ifelse(atPrd > 0.5, "Yes", "No")
-
-atPrd
-
-RMSE <- sqrt(mean((atPrd[,1] - test$Attrition)^2))
-RMSE
 
 for(j in 1:iterations)
 {
@@ -340,33 +314,81 @@ for(j in 1:iterations)
   trainIndices = sample(1:dim(data)[1],round(splitPerc * dim(data)[1]))
   train = data[trainIndices,]
   test = data[-trainIndices,]
-  train2 = rdata[trainIndices,]
-  test2 = rdata[-trainIndices,]
-  model2 = fnb.bernoulli(train2[,nbArray2], train2$Attrition, laplace = .0001)
   model = naiveBayes(train[,nbArray],as.factor(train$Attrition),laplace = .0001)
-  #model = fnb.train(train[,nbArray],as.factor(train$Attrition),laplace = .0001)
-  table(predict(model,test[,nbArray]),as.factor(test$Attrition))
-  table(predict(model2,test2[,nbArray2]),as.factor(test2$Attrition))  
-  
   CM = confusionMatrix(table(predict(model,test[,nbArray]),as.factor(test$Attrition)))
   masterAcc[j] = CM$overall[1]
   masterSen[j] = CM$byClass[1]
   masterSpec[j] = CM$byClass[2]
+
+}
+colMeans(masterAcc)
+colMeans(masterSen)
+colMeans(masterSpec)
+
+confusionMatrix(table(predict(model,test[,nbArray]),as.factor(test$Attrition)))
+
+
+```
+
+# Fast Naive Bayes for Attrition
+
+```{r Fast Naive Bayes attrition}
+
+iterations = 100
+set.seed(7)
+masterAcc2 = matrix(nrow = iterations)
+masterSpec2 = matrix(nrow = iterations)
+masterSen2 = matrix(nrow = iterations)
+splitPerc = .7 #Training / Test split Percentage
+
+nbArray2 <- c('OverTime', 'LowLevel','HighlySatisfied','Unbalanced',"WorkedOver30","SalaryHike", "NewHire","NewToRole", "AgeUnder40","DueForPromotion","TopPerformer","NoStock","Gender","Uninvolved", 'Single','Divorced','Married',"LongCommute","NoTraining","HourlyOver40","MonthlyOver15k","JobManager","JobSalesExecutive", 'JobSalesRepresentative')
+
+model2 = fnb.bernoulli(train2[,nbArray2], train2$Attrition, laplace = .0001)
+
+confusionMatrix(table(predict(model2,test2[,nbArray2]),as.factor(test2$Attrition)))
+
+for(j in 1:iterations)
+{
+  
+  trainIndices = sample(1:dim(data)[1],round(splitPerc * dim(data)[1]))
+  train2 = rdata[trainIndices,]
+  test2 = rdata[-trainIndices,]
+  model2 = fnb.bernoulli(train2[,nbArray2], train2$Attrition, laplace = .0001)
+  table(predict(model2,test2[,nbArray2]),as.factor(test2$Attrition))  
+  
   CM2 = confusionMatrix(table(predict(model2,test2[,nbArray2]),as.factor(test2$Attrition)))
   masterAcc2[j] = CM2$overall[1]
   masterSen2[j] = CM2$byClass[1]
   masterSpec2[j] = CM2$byClass[2]
 }
-colMeans(masterAcc)
-colMeans(masterSen)
-colMeans(masterSpec)
 colMeans(masterAcc2)
 colMeans(masterSen2)
 colMeans(masterSpec2)
 
-confusionMatrix(table(predict(model,test[,nbArray]),as.factor(test$Attrition)))
 confusionMatrix(table(predict(model2,test2[,nbArray2]),as.factor(test2$Attrition)))
 
+
+```
+
+
+# Logistic Regression
+```{r logistic regression}
+
+model3 <- glm(Attrition ~ JobSatisfaction+ OverTime+ WorkLifeBalance+ JobInvolvement + NewHire + YearsSinceLastPromotion+NoStock+DistanceFromHome+BusinessTravel +EnvironmentSatisfaction + JobRole,  data=train, family="binomial")
+
+#model3 <- glm(Attrition ~ JobRole ,data=train, family="binomial")
+
+#HourlyRate+NewToRole +NumCompaniesWorked+LogIncome+JobRole
+summary(model3)
+atPrd <- predict(model3, type='response', newdata = test)
+actualPred <- ifelse(atPrd > 0.5, 1, 0)
+confusionMatrix(table(as.factor(actualPred), as.factor(test2$Attrition)))
+
+#actualPred %>% kable("html") %>% kable_styling()
+#atPrd
+
+#RMSE <- sqrt(mean((atPrd[,1] - test$Attrition)^2))
+#RMSE
 
 ```
 
