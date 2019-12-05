@@ -168,6 +168,8 @@ oData %>% ggplot(aes(NumCompaniesWorked, fill=Attrition)) + geom_bar()
 oData %>% ggplot(aes(Department, fill=Attrition)) + geom_bar()
 
 oData %>% ggplot(aes(JobRole)) + geom_bar(aes(fill=Attrition))
+oData %>% select("JobRole",'OverTime','WorkLifeBalance','JobInvolvement',"PercentSalaryHike", "NumCompaniesWorked","BusinessTravel","YearsAtCompany","Education") %>% ggpairs()
+
 data %>% ggplot(aes(JobResearchDirector, Attrition)) + geom_col()
 data %>% ggplot(aes(JobSalesExecutive, Attrition)) + geom_col()
 data %>% ggplot(aes(JobManufacturingDirector, Attrition)) + geom_col()
