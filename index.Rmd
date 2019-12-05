@@ -116,6 +116,7 @@ rdata <- subset(data, select = -c(Over18, Department, JobRole, MaritalStatus, Ed
 
 # scale numerics 0-1 to improve KNN performance
 kdata <- data.frame(apply(rdata, MARGIN = 2, FUN = function(X) (X - min(X))/diff(range(X))))
+splitPerc = .7 #Training / Test split Percentage
 
 ```
 
@@ -242,9 +243,10 @@ ggsave("corrHalf.png", units="in", width=5, height=4, dpi=600)
 dev.off()
 
 png(height=1200, width=1500, pointsize=10, file="corrMixed.png")
-corrplot.mixed(data.cor, number.cex = .6, tl.cex = 1, tl.pos = 'lt',tl.col="black")
+corrplot.mixed(round(100*data.cor), number.cex = .75, tl.cex = 1, tl.pos = 'lt',tl.col="black", is.corr=F)
 ggsave("corrMixed.png", units="in", width=5, height=4, dpi=600)
 dev.off()
+
 ```
 
 
@@ -257,12 +259,7 @@ numks = round(sqrt(dim(kdata)[1]))
 masterAcc = matrix(nrow = iterations, ncol = numks)
 masterSpec = matrix(nrow = iterations)
 masterSen = matrix(nrow = iterations)
-knnArray <- c('BusinessTravel','JobSatisfaction','MonthlyIncome','OverTime','JobInvolvement','TotalWorkingYears','JobLevel','DistanceFromHome',"Gender")
-knnArray <- c('JobSatisfaction','OverTime','WorkLifeBalance','JobInvolvement','NewHire','YearsSinceLastPromotion','NoStock','DistanceFromHome')
-
-#knnArray <- c('JobSatisfaction','OverTime','JobLevel','WorkLifeBalance', 'JobInvolvement',"PercentSalaryHike",
-            #  "YearsAtCompany","YearsInCurrentRole","TotalWorkingYears","Age","YearsSinceLastPromotion","PerformanceRating","StockOptionLevel",
-          #    'BusinessTravel',"Gender",'JobSatisfaction')
+knnArray <- c('JobSatisfaction','OverTime','WorkLifeBalance','JobInvolvement','NewHire','DueForPromotion','NoStock','DistanceFromHome',"MonthlyIncome")
 
 for(j in 1:iterations) {
   
@@ -288,7 +285,8 @@ MeanAcc = colMeans(masterAcc)
 plot(seq(1,numks,1),MeanAcc, Attrition = 1)
 k <- which.max(MeanAcc)
 MeanAcc[k]
-
+colMeans(masterSen)
+colMeans(masterSpec)
 classifications = knn(train[,knnArray],test[,knnArray],as.factor(train$Attrition), prob = TRUE, k = k)
 confusionMatrix(table(test$Attrition,classifications))
 
@@ -341,7 +339,6 @@ set.seed(7)
 masterAcc2 = matrix(nrow = iterations)
 masterSpec2 = matrix(nrow = iterations)
 masterSen2 = matrix(nrow = iterations)
-splitPerc = .7 #Training / Test split Percentage
 
 nbArray2 <- c('OverTime', 'LowLevel','HighlySatisfied','Unbalanced',"WorkedOver30","SalaryHike", "NewHire","NewToRole", "AgeUnder40","DueForPromotion","TopPerformer","NoStock","Gender","Uninvolved", 'Single','Divorced','Married',"LongCommute","NoTraining","HourlyOver40","MonthlyOver15k","JobManager","JobSalesExecutive", 'JobSalesRepresentative')
 
@@ -375,36 +372,36 @@ confusionMatrix(table(predict(model2,test2[,nbArray2]),as.factor(test2$Attrition
 
 # Logistic Regression
 ```{r logistic regression}
-
-model3 <- glm(Attrition ~ JobSatisfaction+ OverTime+ WorkLifeBalance+ JobInvolvement + NewHire + YearsSinceLastPromotion+NoStock+DistanceFromHome+BusinessTravel +EnvironmentSatisfaction + JobRole,  data=train, family="binomial")
-
-#model3 <- glm(Attrition ~ JobRole ,data=train, family="binomial")
+trainIndices = sample(1:dim(data)[1],round(splitPerc * dim(data)[1]))
+train = data[trainIndices,]
+test = data[-trainIndices,]
+model3 <- glm(Attrition ~ JobSatisfaction + OverTime + WorkLifeBalance + JobInvolvement + NewHire + 
+                YearsSinceLastPromotion + NoStock + DistanceFromHome + BusinessTravel + 
+                EnvironmentSatisfaction, data=train, family="binomial")
 
 #HourlyRate+NewToRole +NumCompaniesWorked+LogIncome+JobRole
 summary(model3)
 atPrd <- predict(model3, type='response', newdata = test)
 actualPred <- ifelse(atPrd > 0.5, 1, 0)
-confusionMatrix(table(as.factor(actualPred), as.factor(test2$Attrition)))
+confusionMatrix(table(as.factor(actualPred), as.factor(test$Attrition)))
 
 #actualPred %>% kable("html") %>% kable_styling()
 #atPrd
 
-#RMSE <- sqrt(mean((atPrd[,1] - test$Attrition)^2))
-#RMSE
+RMSE <- sqrt(mean((atPrd - test$Attrition)^2))
+RMSE
 
 ```
 
 # Regression for Salary
 
 ```{r salary regression}
-
-
+set.seed(5)
 train$LogMonthlyIncome <- log(train$MonthlyIncome)
   trainIndices = sample(1:dim(rdata)[1],round(splitPerc * dim(rdata)[1]))
   train = rdata[trainIndices,]
   test = rdata[-trainIndices,]
-salFit <- lm(MonthlyIncome ~ JobLevel + TotalWorkingYears
-             + JobManager + JobResearchDirector + JobLaboratoryTechnician 
+salFit <- lm(MonthlyIncome ~ JobLevel + TotalWorkingYears + JobManager + JobResearchDirector + JobLaboratoryTechnician + JobResearchScientist + JobHumanResources + JobSalesRepresentative 
              , data=train)
 summary(salFit)
 
@@ -412,6 +409,6 @@ salPrd <- predict(salFit, interval='predict',newdata = test)
 RMSE <- sqrt(mean((salPrd[,1] - test$MonthlyIncome)^2))
 RMSE
 
-olsrr::ols_plot_diagnostics(salFit)
+#olsrr::ols_plot_diagnostics(salFit)
 
 ```
