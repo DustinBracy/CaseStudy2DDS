@@ -5,7 +5,7 @@ An analysis on employee attrition in the workplace
 [`Employee Attrition Analysis`](https://dustinbracy.github.io/CaseStudy2DDS/index.html)
 
 #### YouTube Presentation link:
-TBD
+[`Watch me (quickly) present these findings on YouTube!`](https://youtu.be/lQce2woLHkA)
 
 #### Data descriptions:
 * Talent management = the iterative process of developing and retaining employees
