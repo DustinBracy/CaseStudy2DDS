@@ -2,7 +2,7 @@
 An analysis on employee attrition in the workplace
 
 #### Please see the HTML walkthrough of the code here:
-[`Employee Attrition Analysis`](https://github.com/TBD)
+[`Employee Attrition Analysis`](https://dustinbracy.github.io/CaseStudy2DDS/index.html)
 
 #### YouTube Presentation link:
 TBD
