@@ -24,10 +24,8 @@ library(GGally)
 library(ggthemes)
 library(gridExtra)
 
-colors <- c("#20A2DC", "#B7D432", "#EC2029", "#EC2029","#6A757D","#F57A20")
 theme_set(theme_calc())
 
-  #scale_fill_manual(name = "", values = c('steelblue', 'tomato3'), labels = c("Present", "Missing")) 
 ```
 #### Abstract:
 DDSAnalytics is an analytics company that specializes in talent management solutions for Fortune 100 companies.  Talent management is the iterative process of developing and retaining employees.  To gain a competitive edge over its competition, DDSAnalytics is planning to leverage data science for talent management.  The executive leadership has identified predicting employee turnover as its first application of data science for talent management.  Before the business green lights the project, they have tasked my data science team to conduct an analysis of existing employee data. 
@@ -55,7 +53,14 @@ DDSAnalytics is an analytics company that specializes in talent management solut
 * Employees under 30 are more likely to leave their jobs
 * Employees with less than 5 years at a company or 5 total working years are more likely to leave
 
-```{r import/tidy, echo=FALSE}
+#### Import & Validate data:
+A simple sum of missing values returns 0, which means this dataset is clean and we can start our EDA!
+
+## Exploratory Data Analysis
+
+In Exploratory Data Analysis (EDA), we're looking for correlation among 36 original features. We are primarily looking for features that we can use to predict attrition in the workplace. 
+
+```{r import/tidy, message=FALSE}
 data <- read.csv("./data/CaseStudy2-data.csv", header=T)
 oData <- data # Save original dataset
 
@@ -94,13 +99,9 @@ data$JobLaboratoryTechnician <- ifelse(data$JobRole == "Laboratory Technician",1
 
 ```
 
-## Exploratory Data Analysis
-
-In Exploratory Data Analysis (EDA), we're looking for correlation among 36 original features. We are primarily looking for features that we can use to predict attrition in the workplace. 
-
 #### Continuous Data:
 
-```{r EDA Continuous, echo=FALSE, warning=FALSE, message=FALSE, fig.align="center"}
+```{r EDA Continuous, warning=FALSE, message=FALSE, fig.align="center"}
 
 # Visualize continuous data:
 pIncome <- data %>% ggplot(aes(MonthlyIncome, Attrition)) + geom_smooth() 
@@ -121,7 +122,7 @@ grid.arrange(pIncome,pDistance,pSalaryHike,pCompanies,pDaily,pHourly,pMonthly,pA
 
 #### Ordinal Data:
 
-```{r EDA Ordinal, echo=FALSE, warning=FALSE, message=FALSE, fig.align="center"}
+```{r EDA Ordinal, warning=FALSE, message=FALSE, fig.align="center"}
 
 # Visualize ordinal data:
 pJobSat <- data %>% ggplot(aes(JobSatisfaction, Attrition)) + geom_smooth()
@@ -139,13 +140,13 @@ grid.arrange(pJobSat,pJobLevel,pJobInvolvement,pTraining,pStock,pTravel,pEducati
 
 #### Categorical Data:
 
-```{r EDA Categorical, echo=FALSE, warning=FALSE, message=FALSE, fig.align="center"}
+```{r EDA Categorical, warning=FALSE, message=FALSE, fig.align="center"}
 
 # Visualize categorical data:
 pAttrition <- oData %>% group_by(Attrition) %>% summarise(count = n()) %>% 
     mutate(Percent = (count / sum(count))*100) %>% 
     ggplot() + geom_bar(aes(y=Percent, x=Attrition, fill=Attrition), stat = "identity")
-pDept <- oData %>% ggplot(aes(Department, fill=Attrition)) + geom_bar()
+pDept <- oData %>% ggplot(aes(Department, fill=Attrition)) + geom_bar()  + coord_flip()
 pMarital <- oData %>% ggplot(aes(MaritalStatus, fill=Attrition)) + geom_bar()
 pGender <- oData %>% ggplot(aes(Gender, fill=Attrition)) + geom_bar()
 grid.arrange(pAttrition, pDept, pMarital,pGender, ncol=2, nrow=2)
@@ -204,7 +205,7 @@ Here we are looking to see improvement gained from feature engineering and to en
 
 </center>
 
-```{r determine correlation, warning=FALSE, echo=FALSE, message=FALSE, fig.align="center"}
+```{r determine correlation, warning=FALSE, message=FALSE, fig.align="center"}
 data.cor <- cor(rdata)
 cdata <- data.cor[,c('Attrition','MonthlyIncome')]
 cdata <- data.frame(rbind(names(cdata),cdata))
@@ -271,7 +272,7 @@ dev.off()
 
 
 
-```{r view correlation, echo=FALSE, message=FALSE, fig.align="center"}
+```{r view correlation, message=FALSE, fig.align="center"}
 
 IncomeCorrelation %>% top_n(10) %>% mutate(Feature = factor(Feature, Feature)) %>%
   ggplot(aes(Feature,MonthlyIncome, fill=Feature)) + 
@@ -339,7 +340,7 @@ for(j in 1:iterations) {
   for(i in 1:numks) {
     # predict using i-th value of k
     classifications = knn(train[,knnArray],test[,knnArray],as.factor(train$Attrition), prob = TRUE, k = i)
-    CM = confusionMatrix(table(as.factor(test$Attrition),classifications))
+    CM = confusionMatrix(table(as.factor(test$Attrition),classifications, dnn = c("Prediction", "Reference")), positive = '1')
     masterAcc[j,i] = CM$overall[1]
     masterSen[j,i] = CM$byClass[1]
     masterSpec[j,i] = ifelse(is.na(CM$byClass[2]),0,CM$byClass[2])
@@ -359,7 +360,7 @@ specs %>% kable("html") %>% kable_styling
 
 
 classifications = knn(train[,knnArray],test[,knnArray],as.factor(train$Attrition), prob = TRUE, k = k)
-confusionMatrix(table(test$Attrition,classifications, dnn = c("Prediction", "Reference")))
+confusionMatrix(table(test$Attrition,classifications, dnn = c("Prediction", "Reference")), positive = '1')
 
 
 ```
@@ -403,7 +404,7 @@ for(j in 1:iterations)
   train = data[trainIndices,]
   test = data[-trainIndices,]
   model = naiveBayes(train[,nbArray],as.factor(train$Attrition),laplace = .0001)
-  CM = confusionMatrix(table(predict(model,test[,nbArray]),as.factor(test$Attrition)))
+  CM = confusionMatrix(table(predict(model,test[,nbArray]),as.factor(test$Attrition), dnn = c("Prediction", "Reference")), positive = '1')
   masterAcc[j] = CM$overall[1]
   masterSen[j] = CM$byClass[1]
   masterSpec[j] = CM$byClass[2]
@@ -413,7 +414,7 @@ specs <- c(colMeans(masterAcc),colMeans(masterSen),colMeans(masterSpec))
 names(specs) <- c("Avg Accuracy", "Avg Sensitivity", "Avg Specificity")
 specs %>% kable("html") %>% kable_styling 
 
-confusionMatrix(table(predict(model,test[,nbArray]),as.factor(test$Attrition), dnn = c("Prediction", "Reference")))
+confusionMatrix(table(predict(model,test[,nbArray]),as.factor(test$Attrition), dnn = c("Prediction", "Reference")), positive = '1')
 
 
 ```
@@ -461,9 +462,7 @@ for(j in 1:iterations)
   train2 = rdata[trainIndices,]
   test2 = rdata[-trainIndices,]
   model2 = fnb.bernoulli(train2[,nbArray2], train2$Attrition, laplace = .0001)
-  table(predict(model2,test2[,nbArray2]),as.factor(test2$Attrition))  
-  
-  CM2 = confusionMatrix(table(predict(model2,test2[,nbArray2]),as.factor(test2$Attrition)))
+  CM2 = confusionMatrix(table(predict(model2,test2[,nbArray2]),as.factor(test2$Attrition), dnn = c("Prediction", "Reference")), positive = '1')
   masterAcc2[j] = CM2$overall[1]
   masterSen2[j] = CM2$byClass[1]
   masterSpec2[j] = CM2$byClass[2]
@@ -472,7 +471,7 @@ specs <- c(colMeans(masterAcc2),colMeans(masterSen2),colMeans(masterSpec2))
 names(specs) <- c("Avg Accuracy", "Avg Sensitivity", "Avg Specificity")
 specs %>% kable("html") %>% kable_styling 
 
-confusionMatrix(table(predict(model2,test2[,nbArray2]),as.factor(test2$Attrition), dnn = c("Prediction", "Reference")))
+confusionMatrix(table(predict(model2,test2[,nbArray2]),as.factor(test2$Attrition), dnn = c("Prediction", "Reference")), positive = '1')
 
 
 ```
@@ -500,7 +499,7 @@ model3 <- glm(Attrition ~ JobSatisfaction +
 summary(model3)
 atPrd <- predict(model3, type="response", newdata = test)
 actualPred <- ifelse(atPrd > 0.5, 1, 0)
-confusionMatrix(table(as.factor(actualPred), as.factor(test$Attrition), dnn = c("Prediction", "Reference")))
+confusionMatrix(table(as.factor(actualPred), as.factor(test$Attrition), dnn = c("Prediction", "Reference")), positive = '1')
 
 
 ```
