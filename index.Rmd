@@ -23,12 +23,15 @@ library(fastNaiveBayes)
 library(GGally)
 library(ggthemes)
 library(gridExtra)
+library(readxl)
 
 theme_set(theme_calc())
 
 ```
 #### Abstract:
 DDSAnalytics is an analytics company that specializes in talent management solutions for Fortune 100 companies.  Talent management is the iterative process of developing and retaining employees.  To gain a competitive edge over its competition, DDSAnalytics is planning to leverage data science for talent management.  The executive leadership has identified predicting employee turnover as its first application of data science for talent management.  Before the business green lights the project, they have tasked my data science team to conduct an analysis of existing employee data. 
+
+[`Watch me (quickly) present these findings on YouTube!`](https://youtu.be/lQce2woLHkA)
 
 #### Objectives:
 * Identify the top three factors that contribute to employee attrition (backed up by evidence provided by data analysis).  
@@ -62,6 +65,7 @@ In Exploratory Data Analysis (EDA), we're looking for correlation among 36 origi
 
 ```{r import/tidy, message=FALSE}
 data <- read.csv("./data/CaseStudy2-data.csv", header=T)
+#data <- read.csv("./data/CaseStudy2CompSet No Attrition.csv", header=T)
 oData <- data # Save original dataset
 
 # Check for missing values:
@@ -96,6 +100,10 @@ data$JobManager <- ifelse(data$JobRole == "Manager",1,0)
 data$JobHealthcareRepresentative <- ifelse(data$JobRole == "Healthcare Representative",1,0)
 data$JobHumanResources <- ifelse(data$JobRole == "Human Resources",1,0)
 data$JobLaboratoryTechnician <- ifelse(data$JobRole == "Laboratory Technician",1,0)
+
+
+
+
 
 ```
 
@@ -186,7 +194,7 @@ data$SqRtIncome <- sqrt(data$MonthlyIncome)
 
 
 # drop factors for regression analysis
-rdata <- subset(data, select = -c(Over18, Department, JobRole, MaritalStatus, EducationField, EmployeeCount, StandardHours, ID))
+rdata <- subset(data, select = -c(Over18, Department, JobRole, MaritalStatus, EducationField, EmployeeCount, StandardHours))
 
 # scale numerics 0-1 to improve KNN performance
 kdata <- data.frame(apply(rdata, MARGIN = 2, FUN = function(X) (X - min(X))/diff(range(X))))
@@ -529,3 +537,49 @@ olsrr::ols_plot_diagnostics(salFit)
 
 ```
 
+```{r attrition prediction, include=FALSE}
+
+AtCompData <- read.csv("./data/CaseStudy2CompSet No Attrition.csv", header=T)
+
+AtCompData$NoStock <- ifelse(AtCompData$StockOptionLevel < 1, 1 , 0)
+AtCompData$NewHire <- ifelse(AtCompData$YearsAtCompany <4, 1, 0)
+AtCompData$DueForPromotion <- ifelse(!AtCompData$YearsSinceLastPromotion %in% c(1,5,6,7), 1, 0)
+AtCompData$OverTime <- ifelse(AtCompData$OverTime == "Yes",1,0)
+
+# drop factors for regression analysis
+AtCompData <- subset(AtCompData, select = -c(Over18, Department, JobRole, MaritalStatus, EducationField, EmployeeCount, StandardHours, BusinessTravel, Gender))
+
+# scale numerics 0-1 to improve KNN performance
+AtCompDataIDs <- AtCompData$ID
+AtCompData <- data.frame(apply(AtCompData, MARGIN = 2, FUN = function(X) (X - min(X))/diff(range(X))))
+AtCompData$ID <- AtCompDataIDs
+Atclassifications = knn(kdata[,knnArray],AtCompData[,knnArray],as.factor(kdata$Attrition), prob = TRUE, k = round(sqrt(dim(kdata)[1])))
+
+AtPred <- data.frame(Atclassifications)
+AtPred <- cbind(AtCompData$ID, AtPred)
+names(AtPred) <- c("ID","Attrition")
+AtPred$Attrition <- as.factor(ifelse(AtPred$Attrition == 0, 'No','Yes'))
+
+write.csv(AtPred, file = "./data/Case2PredictionsBracy Attrition.csv", row.names = FALSE)
+
+```
+
+```{r salary prediction, include=FALSE}
+
+SalCompData <- read_xlsx("./data/CaseStudy2CompSet No Salary.xlsx")
+
+salCompFit <- lm(MonthlyIncome ~ 
+               JobLevel + 
+               TotalWorkingYears +
+               JobRole 
+             ,data=data)
+summary(salCompFit)
+
+salCompPrd <- predict(salCompFit, interval="predict",newdata = SalCompData)
+
+salPrediction <- data.frame(cbind(SalCompData$ID, salCompPrd[,1]))
+names(salPrediction) <- c("ID","MonthlyIncome")
+
+write.csv(salPrediction, file = "./data/Case2PredictionsBracy Salary.csv", row.names = FALSE)
+
+```
